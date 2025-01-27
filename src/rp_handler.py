@@ -9,6 +9,7 @@ import concurrent.futures
 import torch
 from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL
 from diffusers.utils import load_image
+from runpod import RunPodLogger
 
 from diffusers import (
     PNDMScheduler,
@@ -25,6 +26,8 @@ from runpod.serverless.utils.rp_validator import validate
 from rp_schemas import INPUT_SCHEMA
 
 torch.cuda.empty_cache()
+
+log = RunPodLogger()
 
 # ------------------------------- Model Handler ------------------------------ #
 
@@ -75,19 +78,19 @@ def _save_and_upload_images(images, job_id):
     os.makedirs(f"/{job_id}", exist_ok=True)
     image_urls = []
 
-    print("BUCKET_ENDPOINT_URL:", os.environ.get("BUCKET_ENDPOINT_URL"))
-    print("AWS_ACCESS_KEY_ID:", os.environ.get("AWS_ACCESS_KEY_ID"))
+    log.info("BUCKET_ENDPOINT_URL:", os.environ.get("BUCKET_ENDPOINT_URL"))
+    log.info("AWS_ACCESS_KEY_ID:", os.environ.get("AWS_ACCESS_KEY_ID"))
 
     for index, image in enumerate(images):
         image_path = os.path.join(f"/{job_id}", f"{index}.png")
         image.save(image_path)
 
         if os.environ.get('BUCKET_ENDPOINT_URL', False):
-            print("Uploading image to S3")
+            log.info("Uploading image to S3")
             image_url = rp_upload.upload_image(job_id, image_path)
             image_urls.append(image_url)
         else:
-            print("Printing base64")
+            log.info("Printing base64")
             with open(image_path, "rb") as image_file:
                 image_data = base64.b64encode(
                     image_file.read()).decode("utf-8")
@@ -131,6 +134,8 @@ def generate_image(job):
     MODELS.base.scheduler = make_scheduler(
         job_input['scheduler'], MODELS.base.scheduler.config)
 
+    log.info("model base scheduler setup done")
+
     if starting_image:  # If image_url is provided, run only the refiner pipeline
         init_image = load_image(starting_image).convert("RGB")
         output = MODELS.refiner(
@@ -142,7 +147,7 @@ def generate_image(job):
         ).images
     else:
         # Generate latent image using pipe
-        print("start to generating image...")
+        log.info("start to generating image...")
         image = MODELS.base(
             prompt=job_input['prompt'],
             negative_prompt=job_input['negative_prompt'],
@@ -171,7 +176,7 @@ def generate_image(job):
                 "refresh_worker": True
             }
 
-    print("generating image completed, starting to upload")
+    log.info("generating image completed, starting to upload")
     image_urls = _save_and_upload_images(output, job['id'])
 
     results = {
@@ -179,6 +184,8 @@ def generate_image(job):
         "image_url": image_urls[0],
         "seed": job_input['seed']
     }
+
+    log.info("result images", image_urls)
 
     if starting_image:
         results['refresh_worker'] = True
