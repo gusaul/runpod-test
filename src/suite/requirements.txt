@@ -1,0 +1,25 @@
+# Core PyTorch & Diffusers stack
+hf_transfer
+torch --index-url https://download.pytorch.org/whl/cu118
+diffusers==0.21.4
+transformers==4.34.0
+accelerate==0.23.0
+safetensors==0.3.2
+xformers==0.0.23
+
+# Audio & Video
+kokoro>=0.3.1
+soundfile
+pydub==0.25.1
+moviepy==1.0.3
+pysrt==1.1.2
+
+# Whisper-based STT
+faster-whisper==0.10.1
+
+# additional indirect dep
+scipy == 1.11.2
+numpy>=1.26.1
+PyWavelets>=1.1.1
+opencv-python>=4.8.1.78
+invisible-watermark==0.2.0
